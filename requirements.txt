@@ -1,0 +1,10 @@
+google-generativeai 
+SpeechRecognition
+pyttsx3
+langchain_community
+langchain_google_genai
+python-dotenv
+langchain
+duckduckgo-search
+PyAudio
+setuptools
