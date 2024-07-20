@@ -1,3 +1,4 @@
 .env
 index.html
 app.py
+__pycache__

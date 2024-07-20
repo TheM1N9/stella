@@ -8,3 +8,4 @@ langchain
 duckduckgo-search
 PyAudio
 setuptools
+psutil

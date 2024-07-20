@@ -6,6 +6,7 @@ Stella is an intelligent voice assistant built using Python. It leverages speech
 
 - **Voice Interaction**: Stella can listen to user commands and respond using text-to-speech.
 - **Open Applications**: Stella can open installed applications on your system.
+- **Close Applications**: Stella can close the opened applications on your system.
 - **Web Search**: Stella can perform web searches using DuckDuckGo and provide concise results.
 - **AI-Powered Answers**: Stella uses Google Generative AI to answer questions and decide which functions to call based on user commands.
 
@@ -58,6 +59,7 @@ GOOGLE_api_key=your_google_api_key
 - `listen()`: Captures and processes user voice input.
 - `speak(text)`: Converts text to speech and responds to the user.
 - `open_application(app_name)`: Opens the specified application on the user's system.
+- `close_application(app_name)`: Closes the specified application on the user's system.
 - `search_web(command)`: Performs a web search and generates a response based on search results.
 - `answer_yourself(command)`: Generates an answer based on the user's command using Google Generative AI.
 - `call_function(function_name, args)`: Determines which function to call based on the command analysis.
