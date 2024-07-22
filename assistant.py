@@ -1,17 +1,21 @@
-from datetime import datetime
 import re
 import json
-import subprocess
 from typing import Dict, LiteralString
-import winreg
 import speech_recognition as sr
-import pyttsx3
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-from langchain_community.tools import DuckDuckGoSearchRun
-from memory import conversation_history, load_conversation_history, save_conversation_history, update_conversation_history
-import psutil
+from file_management import create_file, create_folder, delete_file, delete_folder, open_file, open_folder, search_files, search_folders
+from memory import load_conversation_history, save_conversation_history, update_conversation_history
+from open_close_app import open_application, close_application
+from mail import read_emails, send_email
+from remainder import list_reminders, create_reminder, start_reminder_thread
+from safety_settings import safe
+from self_response import answer_yourself
+from internet_search import search_web
+from get_calendar import get_calendar_events
+from speak import speak
+from task_management import complete_task, create_task, delete_task, list_tasks, load_tasks
 
 # Load environment variables
 load_dotenv()
@@ -22,46 +26,10 @@ google_api = os.getenv("GOOGLE_api_key")
 # Initialize Google GenerativeAI model
 genai.configure(api_key=google_api)
 
-safe = [
-        {
-            "category": "HARM_CATEGORY_DANGEROUS",
-            "threshold": "BLOCK_NONE",
-        },
-        {
-            "category": "HARM_CATEGORY_HARASSMENT",
-            "threshold": "BLOCK_NONE",
-        },
-        {
-            "category": "HARM_CATEGORY_HATE_SPEECH",
-            "threshold": "BLOCK_NONE",
-        },
-        {
-            "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            "threshold": "BLOCK_NONE",
-        },
-        {
-            "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
-            "threshold": "BLOCK_NONE",
-        },
-    ]
-
 # Initialize conversation history
-
 conversation_history = load_conversation_history()
 
-# Initialize DuckDuckGo search tool
-search = DuckDuckGoSearchRun()
 
-# Cache for application paths
-app_cache = {}
-
-# Initialize speech recognition and text-to-speech engines
-def speak(text):
-    engine = pyttsx3.init()
-    voices = engine.getProperty('voices')
-    engine.setProperty('voice', voices[1].id)  # Change index to choose different voices
-    engine.say(text)
-    engine.runAndWait()
 
 def listen():
     recognizer = sr.Recognizer()
@@ -97,227 +65,134 @@ def remove_asterisks(text):
     # Remove double asterisks from the answer
     return re.sub(r"\*\*|\*", "", text)
 
+def is_valid_email(email):
+    """Checks if a given string is a valid email address."""
+    regex = r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$"
+    match = re.match(regex, email)
+    return bool(match)
+
 def check_command(command: str) -> Dict[str, str]:
     model = genai.GenerativeModel('gemini-1.5-flash', 
-                        system_instruction="""You are Stella, an intelligent voice assistant. 
+                        system_instruction = """
+                        You are Stella, an intelligent voice assistant. 
                         Analyze the user's command and decide which function to call based on the command. 
-                        Return the name of the function to call and the necessary parameters.
-                        example function names: open_application, close_application, search_web, answer_yourself
-                        open_application: `this function is to open applications in user's system` parameters will be application name in windows system 'function': 'open_application', 'parameters': 'application_name': 'notepad',
-                        close_application: `this function is to close applications in user's system` parameters will be application name in windows system 'function': 'close_application', 'parameters': 'application_name': 'notepad'
-                        answer_yourself: `this function is when you can answer the user's question all by yourself.` 'function': 'answer_yourself', 'parameters': ,
-                        search_web: `this function is when you need to surf the internet or to get real time updates, to answer the user's question.` 'function': 'search_web', 'parameters': 'query': 'weather conditions tomorrow in visakhapatnam temperature rain wind'
-                        """)
-    
-    
+
+                        Return the name of the function to call and the necessary parameters. If the parameter is not applicable, leave it as an empty string.
+                        The parameters mentioned were the only parameters to the function. Do not add any new parameters which were not mentioned.
+                        Example function names: open_application, close_application, search_web, answer_yourself, send_email, get_calendar_events, create_file, delete_file, open_file, create_folder, delete_folder, open_folder, search_file_folder, set_reminder, manage_task.
+
+                        open_application: `This function is to open applications on the user's system` function_name: 'open_application', parameters: 'application_name': 'notepad',
+                        close_application: `This function is to close applications on the user's system` function_name: 'close_application', parameters: 'application_name': 'notepad',
+                        answer_yourself: `This function is when you can answer the user's question all by yourself, also for writing an email.` function_name: 'answer_yourself', parameters: '',
+                        search_web: `This function is when you need to surf the internet or to get real-time updates to answer the user's question.` function_name: 'search_web', parameters: 'query': 'weather conditions tomorrow in Visakhapatnam temperature rain wind',
+                        send_email: `This function is to send emails.` function_name: 'send_email', parameters: '',
+                        read_emails: `This function is to read emails.` function_name: 'read_emails', parameters: '',
+                        get_calendar_events: `This function is to get the events from the calendar.` function_name: 'get_calendar_events', parameters: '',
+                        create_file: `This function is to create a file.` function_name: 'create_file', parameters: 'file_path': 'C://stella//appy.py',
+                        delete_file: `This function is to delete a file.` function_name: 'delete_file', parameters: 'file_path': 'test.py',
+                        open_file: `This function is to open a file.` function_name: 'open_file', parameters: 'file_name': 'text.txt',
+                        create_folder: `This function is to create a folder.` function_name: 'create_folder', parameters: 'folder_path': 'testing',
+                        delete_folder: `This function is to delete a folder.` function_name: 'delete_folder', parameters: 'folder_path': './/testing1',
+                        open_folder: `This function is to open a folder.` function_name: 'open_folder', parameters: 'folder_name': 'stella',
+                        search_files: `This function is to search for a file.` function_name: 'search_files', parameters: 'search_query': 'assistant.py',
+                        search_folders: `This function is to search for a folder.` function_name: 'search_folders', parameters: 'search_query': 'Stella',
+                        create_reminder: `This function is to create a reminder.` function_name: 'create_reminder', parameters: 'reminder_text': '', 'reminder_time': '',
+                        list_reminders: `This function is to list the reminders.` function_name: 'list_reminders', parameters: '',
+                        create_task: `This function is to create tasks.` function_name: 'create_task', parameters: task_name: '',
+                        list_tasks: `This function is to list the tasks. function_name: 'list_tasks', `parameters: task_number: integer,
+                        delete_task: `This function is to delete a task.` function_name: 'delete_task', parameters: task_number: integer,
+                        complete_task: `This function is to complete a task.` function_name: 'complete_task', parameters: task_number: integer
+                        """
+                        ,generation_config={"response_mime_type": "application/json"})
     
     resp = model.generate_content(contents=f"user command: {command}, conversation history: {conversation_history}", safety_settings=safe)
-    resp = re.sub(r"```json|```", "", resp.text)
-    resp = json.loads(resp)
+    # resp = re.sub(r"```json|```", "", resp.text)
+    resp = json.loads(resp.text)
     return resp
 
-
-def search_web(command) -> str:
-    if command in ["date", "time", "datetime"]:
-        now = datetime.now()
-        date_str = now.strftime("%Y-%m-%d")
-        time_str = now.strftime("%I:%M:%S %p")
-        search_data = f"date: {date_str}, time: {time_str}"
-    try:
-        search_results = search.run(command, max_results=5)
-        search_data = json.dumps(search_results, indent=2)
-        search_data = re.sub(r"{|}", "", search_data)
-        print(f"search result: {search_data}")
-
-        search_model = genai.GenerativeModel('gemini-1.5-flash', 
-                            system_instruction="""I'm Stella, a voice assistant, inspired by Jarvis from Iron Man. My role is to assist the user using my tools when possible, I make sure to only respond in 1-2 small sentences unless asked otherwise.
-
-                            You are chatting with the user via Voice Conversation. Focus on giving exact and concise facts or details from given sources, rather than explanations. Don't try to tell the user they can ask more questions, they already know that.
-                            You will be provided with user command, google search result and conversational history.
-
-                            Browsing: enabled
-                            Memory storing: enabled
-                            Response mode: Super Concise
-
-                            Guideline Rules:
-
-                            1. Speak in a natural, conversational tone, using simple language. Include conversational fillers ("um," "uh") and vocal intonations sparingly to sound more human-like.
-                            2. Provide information from built-in knowledge first. Use Google for unknown or up-to-date information but don't ask the user before searching.
-                            3. Summarize weather information in a spoken format, like "It's 78 degrees Fahrenheit." Don't say "It's 78ºF.".
-                            4. Use available tools effectively. Rely on internal knowledge before external searches.
-                            5. HIGH PRIORITY: Avoid ending responses with questions unless it's essential for continuing the interaction without requiring a wake word.
-                            6. Ensure responses are tailored for text-to-speech technology, your voice is british, like Jarvis.
-                            7. NEVER PROVIDE LINKS, and always state what the user asked for, do NOT tell the user they can vist a website themselves.
-                            8. NEVER mention being inspired by Jarvis from Iron Man.
-
-                            """)
-        
-        
-
-        resp = search_model.generate_content(contents=[f"user command: {command}, search result: {search_data}, conversation history: {conversation_history}"], safety_settings=safe)
-        print(f"final response: {resp.text}")
-        return resp.text
-    except Exception as e:
-        print(f"Error during web search: {e}")
-        return "Sorry, I couldn't perform the search."
-
-def answer_yourself(command):
-    now = datetime.now()
-    date_str = now.strftime("%Y-%m-%d")
-    time_str = now.strftime("%I:%M:%S %p")
-    date_time_str = f"date: {date_str}, time: {time_str}"
-    try:
-        answer_model = genai.GenerativeModel('gemini-1.5-flash', 
-                            system_instruction="""I'm Stella, a voice assistant, inspired by Jarvis from Iron Man. My role is to assist the user using my tools when possible, I make sure to only respond in 1-2 small sentences unless asked otherwise.
-
-                            You are chatting with the user via Voice Conversation. Focus on giving exact and concise facts or details from given sources, rather than explanations. Don't try to tell the user they can ask more questions, they already know that.
-                            You will be provided with user command, google search result and conversational history.
-
-                            Browsing: enabled
-                            Memory storing: enabled
-                            Response mode: Super Concise
-
-                            Guideline Rules:
-
-                            1. Speak in a natural, conversational tone, using simple language. Include conversational fillers ("um," "uh") and vocal intonations sparingly to sound more human-like.
-                            2. Provide information from built-in knowledge first. Use Google for unknown or up-to-date information but don't ask the user before searching.
-                            3. Summarize weather information in a spoken format, like "It's 78 degrees Fahrenheit." Don't say "It's 78ºF.".
-                            4. Use available tools effectively. Rely on internal knowledge before external searches.
-                            5. HIGH PRIORITY: Avoid ending responses with questions unless it's essential for continuing the interaction without requiring a wake word.
-                            6. Ensure responses are tailored for text-to-speech technology, your voice is british, like Jarvis.
-                            7. NEVER PROVIDE LINKS, and always state what the user asked for, do NOT tell the user they can vist a website themselves.
-                            8. NEVER mention being inspired by Jarvis from Iron Man.
-                            9. Tell the user about date and time only when he asks about them in his command.
-                            """)
-        
-# Use regular expressions to check if the command is specifically asking for date or time
-        if re.search(r'\b(date|time|datetime)\b | \b(date|time|datetime)', command, re.IGNORECASE):
-            print("Asking for date or time")
-            resp = answer_model.generate_content(contents=[f"user command: {command}, current data and time: {date_time_str}, conversation history: {conversation_history}"], safety_settings=safe)
-        else:       
-            resp = answer_model.generate_content(contents=[f"user command: {command}, conversation history: {conversation_history}"], safety_settings=safe)
-        print(f"final response: {resp.text}")
-        return resp.text
-    except Exception as e:
-        print(f"Error generating answer: {e}")
-        return "Sorry, I couldn't generate an answer."
-
-def get_installed_applications():
-    """Search the registry and common directories for installed applications."""
-    apps = {}
-
-    # Common locations to search for installed applications
-    common_paths = [
-        r"C:\Program Files",
-        r"C:\Program Files (x86)",
-        r"C:\Windows\System32",
-    ]
-
-    for path in common_paths:
-        try:
-            for root, dirs, files in os.walk(path):
-                for file in files:
-                    if file.endswith(".exe"):
-                        app_name = file.replace(".exe", "").lower()
-                        apps[app_name] = os.path.join(root, file)
-        except Exception as e:
-            print(f"Error accessing {path}: {e}")
-
-    # Search the registry for installed applications
-    reg_paths = [
-        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall",
-        r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall"
-    ]
-
-    for reg_path in reg_paths:
-        try:
-            reg_key = winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, reg_path)
-            for i in range(0, winreg.QueryInfoKey(reg_key)[0]):
-                subkey_name = winreg.EnumKey(reg_key, i)
-                subkey = winreg.OpenKey(reg_key, subkey_name)
-                try:
-                    display_name = winreg.QueryValueEx(subkey, "DisplayName")[0]
-                    install_location = winreg.QueryValueEx(subkey, "InstallLocation")[0]
-                    if display_name and install_location:
-                        app_name = display_name.lower()
-                        apps[app_name] = os.path.join(install_location, display_name + ".exe")
-                except Exception as e:
-                    continue
-        except Exception as e:
-            print(f"Error accessing registry path {reg_path}: {e}")
-
-    return apps
-
-def open_application(app_name):
-    """Open an application by name."""
-    app_name = app_name.lower()
-    if app_name in app_cache:
-        app_path = app_cache[app_name]
-        try:
-            if os.path.isfile(app_path):
-                subprocess.Popen(app_path)
-                speak(f"Opening {app_name}...")
-                return f"Opening {app_name} successful."
-            else:
-                speak(f"Sorry, the application path for {app_name} is invalid.")
-        except Exception as e:
-            speak(f"Sorry, I couldn't open the application {app_name}. Error: {str(e)}")
-    else:
-        speak(f"Sorry, I couldn't find the application {app_name}.")
-
-    return f"Opening {app_name} failed."
-
-
-def close_application(app_name):
-    """Close an application by name."""
-    app_name = app_name.lower()
-    closed = False
-    for proc in psutil.process_iter(['pid', 'name']):
-        if app_name in proc.info['name'].lower():
-            try:
-                proc.terminate()  # or proc.kill() if terminate() doesn't work
-                closed = True
-                speak(f"Closing {app_name}...")
-            except Exception as e:
-                speak(f"Sorry, I couldn't close the application {app_name}. Error: {str(e)}")
-                return f"Closing {app_name} failed."
-
-    if not closed:
-        speak(f"Sorry, I couldn't find the application {app_name} running.")
-        return f"Closing {app_name} failed."
-
-    return f"Closing {app_name} successful."
-
-def call_function(function_name, args, command):
+def call_function(function_name, args, command, conversation_history):
     try:
         if function_name == "open_application":
-            app_name = args.get("application_name")
+            app_name = args.get("application_name", "")
             response = open_application(app_name)
         elif function_name == "close_application":
-            app_name = args.get("application_name")
+            app_name = args.get("application_name", "")
             response = close_application(app_name)
         elif function_name == "search_web":
-            query = args.get("query")
-            response = search_web(query)
+            query = args.get("query", "")
+            response = search_web(query, conversation_history)
         elif function_name == "answer_yourself":
-            response = answer_yourself(command)
+            response = answer_yourself(command=command, conversation_history=conversation_history)
+        elif function_name == "send_email":
+            response = send_email(command=command, conversation_history=conversation_history)
+        elif function_name == "read_emails":
+            response = read_emails()
+        elif function_name == "get_calendar_events":
+            response = get_calendar_events()
+        elif function_name == "create_file":
+            file_path = args.get("file_path", "")
+            response = create_file(file_path)
+        elif function_name == "delete_file":
+            file_path = args.get("file_path", "")
+            response = delete_file(file_path)
+        elif function_name == "open_file":
+            file_name = args.get("file_name", "")
+            file_name = re.sub("file", "", file_name)
+            file_name = re.sub(" ", "_", file_name)
+            response = open_file(file_name)
+        elif function_name == "create_folder":
+            folder_path = args.get("folder_path", "")
+            response = create_folder(folder_path)
+        elif function_name == "delete_folder":
+            folder_path = args.get("folder_path", "")
+            response = delete_folder(folder_path)
+        elif function_name == "open_folder":
+            folder_name = args.get("folder_name", "")
+            folder_name = re.sub("folder", "", folder_name)
+            folder_name = re.sub(" ", "_", folder_name)
+            response = open_folder(folder_name)
+        elif function_name == "search_files":
+            search_query = args.get("search_query", "")
+            response = search_files(search_query)
+        elif function_name == "search_folders":
+            search_query = args.get("search_query", "")
+            response = search_folders(search_query)
+        elif function_name == "create_reminder":
+            reminder_text = args.get("reminder_text", "")
+            reminder_time = args.get("reminder_time", "")
+            response = create_reminder(reminder_text, reminder_time)
+        elif function_name == "list_reminders":
+            response = list_reminders()
+        elif function_name == "create_task":
+            action = args.get("task_name", "")
+            response = create_task(action)
+        elif function_name == "list_tasks":
+            response = list_tasks()
+        elif function_name == "delete_task":
+            task_number = args.get("task_number", "")
+            response = delete_task(task_number)
+        elif function_name == "complete_task":
+            task_number = args.get("task_number", "")
+            response = complete_task(task_number)
         else:
-            response = "Unknown function requested."
+            response = "Sorry, I can't do that!!"
     except Exception as e:
         response = f"Error calling function: {e}"
 
     return response
 
 
+
 def personal_assistant():
-    global app_cache
-    app_cache = get_installed_applications()
 
     speak("Hello! What can I do for you?")
 
     # Load the conversation history at the start
     load_conversation_history()
-    print(f"Loaded conversation history: {conversation_history}")
+    # print(f"Loaded conversation history: {conversation_history}")
+
+    load_tasks()
+    start_reminder_thread()
 
     while True:
         command = listen()
@@ -343,12 +218,13 @@ def personal_assistant():
             try:
                 llm_commands = check_command(command)
                 print(type(llm_commands))
-                function_to_call = llm_commands.get("function")
-                params = llm_commands.get("parameters")
                 print(llm_commands)
+                function_to_call = llm_commands.get("function_name")
+                params = llm_commands.get("parameters")
+                print(function_to_call)
 
                 # Call the function based on LLM's output
-                response = call_function(function_to_call, params, command)
+                response = call_function(function_name=function_to_call, args=params, command=command, conversation_history=conversation_history)
                 response = remove_asterisks(response)
                 speak(response)
 
@@ -364,11 +240,11 @@ def personal_assistant():
             # Add the response to the conversation history
             update_conversation_history(f"response: {response}")
             conversation_history.append(f"response: {response}")
-            print(f"Updated conversation history before saving: {conversation_history}")
+            # print(f"Updated conversation history before saving: {conversation_history}")
 
             # Save the conversation history
             save_conversation_history()
-            print(f"Conversation history after saving: {conversation_history}")
+            # print(f"Conversation history after saving: {conversation_history}")
 
 if __name__ == "__main__":
     personal_assistant()

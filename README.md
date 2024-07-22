@@ -1,6 +1,6 @@
 # Stella Voice Assistant
 
-Stella is an intelligent voice assistant built using Python. It leverages speech recognition, text-to-speech, and natural language processing to interact with users, perform searches, and open applications on the user's system.
+Stella is an intelligent voice assistant built using Python. It leverages speech recognition, text-to-speech, and natural language processing to interact with users, perform searches, open applications, and manage various tasks on the user's system.
 
 ## Features
 
@@ -9,6 +9,12 @@ Stella is an intelligent voice assistant built using Python. It leverages speech
 - **Close Applications**: Stella can close the opened applications on your system.
 - **Web Search**: Stella can perform web searches using DuckDuckGo and provide concise results.
 - **AI-Powered Answers**: Stella uses Google Generative AI to answer questions and decide which functions to call based on user commands.
+- **Send Emails**: Stella can automatically send emails to users (requires authorization each time).
+- **Fetch Calendar Events**: Stella can fetch events from your calendar.
+- **Contextual Awareness**: Stella remembers context from previous conversations to provide more relevant responses.
+- **Task Management**: Stella can manage tasks, including creating, updating, and deleting tasks.
+- **File and Folder Management**: Stella can open, create, delete, search, and find files and folders.
+- **Reminders**: Stella can set reminders and notify you when it's time.
 
 ## Installation
 
@@ -52,6 +58,13 @@ GOOGLE_api_key=your_google_api_key
     - **Ask questions** (e.g., "What is the weather like today?").
     - **Say "Stop"** to end the conversation.
 
+4. **For Sending Emails**:
+    - Set up the Gmail API using OAuth2 authentication. Follow these steps:
+        - Set up a [Google Cloud Platform](https://cloud.google.com/) project.
+        - Under "APIs and services", enable the Gmail API, Calander API.
+        - Create credentials for a Desktop App and download the `credentials.json` file.
+        - Store the `credentials.json` file in your project directory.
+
 ## Code Overview
 
 ### Main Components
@@ -62,6 +75,14 @@ GOOGLE_api_key=your_google_api_key
 - `close_application(app_name)`: Closes the specified application on the user's system.
 - `search_web(command)`: Performs a web search and generates a response based on search results.
 - `answer_yourself(command)`: Generates an answer based on the user's command using Google Generative AI.
+- `send_email(command)`: Sends an email based on the user's command.
+- `get_calendar_events()`: Fetches events from the user's calendar.
+- `manage_tasks(task_action, task_details)`: Manages tasks based on the user's command.
+- `open_folder(folder_path)`: Opens a specified folder on the user's system.
+- `create_folder(folder_path)`: Creates a specified folder on the user's system.
+- `delete_folder(folder_path)`: Deletes a specified folder on the user's system.
+- `search_files_and_folders(query)`: Searches for files and folders based on the user's query.
+- `set_reminder(reminder_details)`: Sets a reminder based on the user's command.
 - `call_function(function_name, args)`: Determines which function to call based on the command analysis.
 - `personal_assistant()`: Main function that runs the assistant, listens for commands, and handles responses.
 

@@ -28,12 +28,12 @@ def save_conversation_history():
     try:
         with open('conversation_history.json', 'w') as file:
             json.dump(conversation_history, file, indent=4)
-        print("Conversation history saved successfully.")
+        # print("Conversation history saved successfully.")
         # Verify if the file has been updated
         with open('conversation_history.json', 'r') as file:
             contents = file.read()
-            print("File contents after saving:")
-            print(contents)
+            # print("File contents after saving:")
+            # print(contents)
             if not contents:
                 print("Error: File is empty after save.")
     except Exception as e:
