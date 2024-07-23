@@ -26,11 +26,6 @@ google_api = os.getenv("GOOGLE_api_key")
 # Initialize Google GenerativeAI model
 genai.configure(api_key=google_api)
 
-# Initialize conversation history
-conversation_history = load_conversation_history()
-
-
-
 def listen():
     recognizer = sr.Recognizer()
 
@@ -71,12 +66,13 @@ def is_valid_email(email):
     match = re.match(regex, email)
     return bool(match)
 
-def check_command(command: str) -> Dict[str, str]:
+def check_command(command: str, conversation_history) -> Dict[str, str]:
     model = genai.GenerativeModel('gemini-1.5-flash', 
                         system_instruction = """
                         You are Stella, an intelligent voice assistant. 
                         Analyze the user's command and decide which function to call based on the command. 
 
+                        Return the list of the function in order to complete the user's command.
                         Return the name of the function to call and the necessary parameters. If the parameter is not applicable, leave it as an empty string.
                         The parameters mentioned were the only parameters to the function. Do not add any new parameters which were not mentioned.
                         Example function names: open_application, close_application, search_web, answer_yourself, send_email, get_calendar_events, create_file, delete_file, open_file, create_folder, delete_folder, open_folder, search_file_folder, set_reminder, manage_task.
@@ -98,81 +94,115 @@ def check_command(command: str) -> Dict[str, str]:
                         search_folders: `This function is to search for a folder.` function_name: 'search_folders', parameters: 'search_query': 'Stella',
                         create_reminder: `This function is to create a reminder.` function_name: 'create_reminder', parameters: 'reminder_text': '', 'reminder_time': '',
                         list_reminders: `This function is to list the reminders.` function_name: 'list_reminders', parameters: '',
-                        create_task: `This function is to create tasks.` function_name: 'create_task', parameters: task_name: '',
-                        list_tasks: `This function is to list the tasks. function_name: 'list_tasks', `parameters: task_number: integer,
-                        delete_task: `This function is to delete a task.` function_name: 'delete_task', parameters: task_number: integer,
-                        complete_task: `This function is to complete a task.` function_name: 'complete_task', parameters: task_number: integer
+                        create_task: `This function is to create tasks.` function_name: 'create_task', parameters: 'task_name': '',
+                        list_tasks: `This function is to list the tasks. function_name: 'list_tasks', `parameters: 'task_number': integer,
+                        delete_task: `This function is to delete a task.` function_name: 'delete_task', parameters: 'task_number': integer,
+                        complete_task: `This function is to complete a task.` function_name: 'complete_task', parameters: 'task_number': integer
+
+                        The JSON output format:
+                        `
+                            'function_list': ['open_application', 'close_application', 'search_web', 'send_email'],
+                            'open_application': `
+                                                    'parameters': `
+                                                                    'application_name': 'notepad'
+                                                                `
+                                                `,
+                            'close_application': `
+                                                    'parameters': `
+                                                                        'application_name': 'spotify'
+                                                                    `
+                                                `,
+                            'search_web': `
+                                                    'parameters': `
+                                                                    'query': 'weather conditions tomorrow in Visakhapatnam temperature rain wind'
+                                                                `
+                                                `,
+                            'send_email': `
+                                                'parameters': ''
+                                            `
+                        `
+                        The output should be in the proper JSON format Ensure you use proper parenthesis in the output, replace ` with parenthesis. Parameters is also a JSON.
                         """
                         ,generation_config={"response_mime_type": "application/json"})
     
     resp = model.generate_content(contents=f"user command: {command}, conversation history: {conversation_history}", safety_settings=safe)
-    # resp = re.sub(r"```json|```", "", resp.text)
-    resp = json.loads(resp.text)
-    return resp
+    return json.loads(resp.text)
 
-def call_function(function_name, args, command, conversation_history):
+def call_function(llm_commands_list,function_name,command,conversation_history):
     try:
         if function_name == "open_application":
-            app_name = args.get("application_name", "")
-            response = open_application(app_name)
+            params = llm_commands_list.get("open_application", {}).get("parameters", {})
+            application_name = params.get("application_name", "")
+            response = open_application(application_name)
         elif function_name == "close_application":
-            app_name = args.get("application_name", "")
-            response = close_application(app_name)
+            params = llm_commands_list.get("close_application", {}).get("parameters", {})
+            application_name = params.get("application_name", "")
+            response = close_application(application_name)
         elif function_name == "search_web":
-            query = args.get("query", "")
+            params = llm_commands_list.get("search_web", {}).get("parameters", {})
+            query = params.get("query", "")
             response = search_web(query, conversation_history)
         elif function_name == "answer_yourself":
-            response = answer_yourself(command=command, conversation_history=conversation_history)
+            response = answer_yourself(command=command, conversation_history=conversation_history, answer="")
         elif function_name == "send_email":
             response = send_email(command=command, conversation_history=conversation_history)
         elif function_name == "read_emails":
-            response = read_emails()
+            ans = read_emails()
+            response = answer_yourself(command=command, conversation_history=conversation_history, answer=ans)
         elif function_name == "get_calendar_events":
             response = get_calendar_events()
         elif function_name == "create_file":
-            file_path = args.get("file_path", "")
+            params = llm_commands_list.get("create_file", {}).get("parameters", {})
+            file_path = params.get("file_path", "")
             response = create_file(file_path)
         elif function_name == "delete_file":
-            file_path = args.get("file_path", "")
+            params = llm_commands_list.get("delete_file", {}).get("parameters", {})
+            file_path = params.get("file_path", "")
             response = delete_file(file_path)
         elif function_name == "open_file":
-            file_name = args.get("file_name", "")
-            file_name = re.sub("file", "", file_name)
-            file_name = re.sub(" ", "_", file_name)
+            params = llm_commands_list.get("open_file", {}).get("parameters", {})
+            file_name = params.get("file_name", "")
             response = open_file(file_name)
         elif function_name == "create_folder":
-            folder_path = args.get("folder_path", "")
+            params = llm_commands_list.get("create_folder", {}).get("parameters", {})
+            folder_path = params.get("folder_path", "")
             response = create_folder(folder_path)
         elif function_name == "delete_folder":
-            folder_path = args.get("folder_path", "")
+            params = llm_commands_list.get("delete_folder", {}).get("parameters", {})
+            folder_path = params.get("folder_path", "")
             response = delete_folder(folder_path)
         elif function_name == "open_folder":
-            folder_name = args.get("folder_name", "")
-            folder_name = re.sub("folder", "", folder_name)
-            folder_name = re.sub(" ", "_", folder_name)
+            params = llm_commands_list.get("open_folder", {}).get("parameters", {})
+            folder_name = params.get("folder_name", "")
             response = open_folder(folder_name)
         elif function_name == "search_files":
-            search_query = args.get("search_query", "")
+            params = llm_commands_list.get("search_files", {}).get("parameters", {})
+            search_query = params.get("search_query", "")
             response = search_files(search_query)
         elif function_name == "search_folders":
-            search_query = args.get("search_query", "")
+            params = llm_commands_list.get("search_folders", {}).get("parameters", {})
+            search_query = params.get("search_query", "")
             response = search_folders(search_query)
         elif function_name == "create_reminder":
-            reminder_text = args.get("reminder_text", "")
-            reminder_time = args.get("reminder_time", "")
+            params = llm_commands_list.get("create_reminder", {}).get("parameters", {})
+            reminder_text = params.get("reminder_text", "")
+            reminder_time = params.get("reminder_time", "")
             response = create_reminder(reminder_text, reminder_time)
         elif function_name == "list_reminders":
             response = list_reminders()
         elif function_name == "create_task":
-            action = args.get("task_name", "")
-            response = create_task(action)
+            params = llm_commands_list.get("create_task", {}).get("parameters", {})
+            task_name = params.get("task_name", "")
+            response = create_task(task_name)
         elif function_name == "list_tasks":
             response = list_tasks()
         elif function_name == "delete_task":
-            task_number = args.get("task_number", "")
+            params = llm_commands_list.get("delete_task", {}).get("parameters", {})
+            task_number = params.get("task_number", 0)
             response = delete_task(task_number)
         elif function_name == "complete_task":
-            task_number = args.get("task_number", "")
+            params = llm_commands_list.get("complete_task", {}).get("parameters", {})
+            task_number = params.get("task_number", 0)
             response = complete_task(task_number)
         else:
             response = "Sorry, I can't do that!!"
@@ -181,14 +211,14 @@ def call_function(function_name, args, command, conversation_history):
 
     return response
 
-
-
 def personal_assistant():
 
     speak("Hello! What can I do for you?")
 
     # Load the conversation history at the start
-    load_conversation_history()
+    # Initialize conversation history
+    conversation_history = load_conversation_history()
+
     # print(f"Loaded conversation history: {conversation_history}")
 
     load_tasks()
@@ -208,7 +238,7 @@ def personal_assistant():
             response = "Goodbye!"
             speak("Goodbye!")
             break
-        elif "hello" in command:
+        elif "hello" in command.strip():
             response = "Hello there!"
             speak("Hi there!")
         elif "your name" in command:
@@ -216,18 +246,21 @@ def personal_assistant():
             speak("I am Stella.")
         else:
             try:
-                llm_commands = check_command(command)
+                llm_commands = check_command(command, conversation_history)
                 print(type(llm_commands))
                 print(llm_commands)
                 function_to_call = llm_commands.get("function_name")
                 params = llm_commands.get("parameters")
                 print(function_to_call)
 
-                # Call the function based on LLM's output
-                response = call_function(function_name=function_to_call, args=params, command=command, conversation_history=conversation_history)
+                function_list = llm_commands.get("function_list", [])
+                response = ""
+                for function_name in function_list:
+                    # Call the function based on LLM's output
+                    response = response + call_function(llm_commands, function_name,command,conversation_history)
+                
                 response = remove_asterisks(response)
                 speak(response)
-
             except json.JSONDecodeError as e:
                 response = "Sorry, I couldn't process the command."
                 print(f"Error decoding JSON response: {e}")

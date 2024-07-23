@@ -3,40 +3,28 @@ import subprocess
 
 # Open a file using the default application
 def open_file(file_name):
-    # try:
-    #     if os.path.isfile(file_path):
-    #         os.startfile(file_path)
-    #         return f"Opening file: {file_path}"
-    #     else:
-    #         return "File not found."
-    # except Exception as e:
-    #     return f"Error opening file: {str(e)}"
     try:
-        file = search_files(file_name)
-        if file:
-            os.startfile(file[0])
-            return f"Opening file: {file_name}"
+        files = search_files(file_name)
+        if files:
+            for file in files:
+                os.startfile(file)
+            return f"Opening {len(files)} file(s) matching: {file_name}"
         else:
-            return "file not found."
+            return "File not found."
     except Exception as e:
         return f"Error opening file: {str(e)}"
 
 def open_folder(folder_name):
-    # try:
-    #     if os.path.isdir(folder_path):
-    #         os.startfile(folder_path)
-    # except Exception as e:
-    #     return f"Error opening folder: {str(e)}"
     try:
-        folder = search_folders(folder_name)
-        if folder:
-            os.startfile(folder[0])
-            return f"Opening folder: {folder_name}"
+        folders = search_folders(folder_name)
+        if folders:
+            for folder in folders:
+                os.startfile(folder)
+            return f"Opening {len(folders)} folder(s) matching: {folder_name}"
         else:
             return "Folder not found."
     except Exception as e:
         return f"Error opening folder: {str(e)}"
-
 
 # Create an empty file
 def create_file(file_path):
@@ -98,8 +86,15 @@ def search_folders(search_term, base_path="."):
 
 if __name__ == "__main__":
     # Example usage
-    create_folder('test_folder')
-    create_file('test_folder/testing.txt')
-    matches = search_files('testing.txt')
-    open_file(matches[0])
-    print(matches)
+    # create_folder('test_folder')
+    # create_file('test_folder/testing.txt')
+    
+    # Open all files and folders matching the search term
+    # file_matches = search_files('testing.txt')
+    folder_matches = search_folders('m1n9')
+    
+    # open_file('testing.txt')
+    open_folder('m1n9')
+    
+    # print(f"Files found: {file_matches}")
+    print(f"Folders found: {folder_matches}")

@@ -108,7 +108,8 @@ def read_emails():
             }
             emails.append(email_info)
 
-        return emails
+        print(emails)
+        return str(emails)
 
     except Exception as error:
         print(error)
