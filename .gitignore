@@ -1,6 +1,4 @@
 .env
-index.html
-app.py
 __pycache__
 credentials.json
 credentials1.json

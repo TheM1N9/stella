@@ -101,6 +101,18 @@ You can customize Stella by:
 - **Adding More Functions**: Implement additional functions and update the LLM's system instructions to include them.
 - **Enhancing NLP**: Improve natural language processing by fine-tuning the AI model or using additional NLP libraries.
 
+## Future Updates for Stella
+
+- [ ] Give it the ability to use mouse and keyboard
+- [ ] Add the ability to see
+- [ ] Change its memory type
+- [ ] Add a command to open the web interface from voice prompt and vice versa
+- [ ] Integration with Messaging Apps: Connect Stella with messaging platforms like Slack, Microsoft Teams, or WhatsApp for sending and receiving messages
+- [ ] Add Wikipedia integration
+- [ ] Periodically search for the latest news and store it as summarized memory without a command
+- [ ] Maintain an online presence to stay updated with the current world events
+
+
 ## Contributing
 
 Contributions are welcome! Please open an issue or submit a pull request on [GitHub](https://github.com/TheM1N9/stella).
