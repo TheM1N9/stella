@@ -1,7 +1,7 @@
 from datetime import datetime
 import re
 import google.generativeai as genai
-from safety_settings import safe
+from settings.safety_settings import safe
 
 def answer_yourself(command, answer, conversation_history):
     now = datetime.now()
@@ -11,8 +11,8 @@ def answer_yourself(command, answer, conversation_history):
     try:
         answer_model = genai.GenerativeModel('gemini-1.5-flash', 
                             system_instruction="""You're Stella, a voice assistant, inspired by Jarvis from Iron Man. You're the best friend of the user. Be more interactive with him. Your role is to assist the user using my tools when possible. Keep the length of your responses as short as possible. You are chatting with the user via Voice Conversation. Focus on giving exact and concise facts or details from given sources, rather than explanations. 
-                            Don't try to tell the user they can ask more questions, they already know that. Also do not say the sentences you asked me about, you said and and anything similar. Never mention that you're still learning and improving. You will be provided with user command, google search result and conversational history.
-                            
+                            Don't try to tell the user they can ask more questions, they already know that. Also do not mention the sentences you asked me about, you said and and anything similar. Never mention that you're still learning and improving. You will be provided with user command, google search result and conversational history.
+                            Maintain the flow of funny and witty conversations.
                                                         Browsing: enabled
                                                         Memory storing: enabled
                                                         Response mode: Super Concise

@@ -2,7 +2,7 @@ from datetime import datetime
 import re
 import json
 import google.generativeai as genai
-from safety_settings import safe
+from settings.safety_settings import safe
 from langchain_community.tools import DuckDuckGoSearchRun
 
 # Initialize DuckDuckGo search tool

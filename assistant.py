@@ -5,17 +5,17 @@ import speech_recognition as sr
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-from file_management import create_file, create_folder, delete_file, delete_folder, open_file, open_folder, search_files, search_folders
-from memory import load_conversation_history, save_conversation_history, update_conversation_history
-from open_close_app import open_application, close_application
-from mail import read_emails, send_email
-from remainder import list_reminders, create_reminder, start_reminder_thread
-from safety_settings import safe
-from self_response import answer_yourself
-from internet_search import search_web
-from get_calendar import get_calendar_events
-from speak import speak
-from task_management import complete_task, create_task, delete_task, list_tasks, load_tasks
+from features.file_management import create_file, create_folder, delete_file, delete_folder, open_file, open_folder, search_files, search_folders
+from memory.memory import load_conversation_history, save_conversation_history, update_conversation_history
+from features.open_close_app import open_application, close_application
+from features.mail import read_emails, send_email
+from features.remainder import list_reminders, create_reminder, start_reminder_thread
+from settings.safety_settings import safe
+from features.self_response import answer_yourself
+from features.internet_search import search_web
+from features.get_calendar import get_calendar_events
+from features.speak import speak
+from features.task_management import complete_task, create_task, delete_task, list_tasks, load_tasks
 
 # Load environment variables
 load_dotenv()

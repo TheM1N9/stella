@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, jsonify
 import json
 import os
-from speak import speak
+from features.speak import speak
 from web_assistant import personal_assistant, conversation_history
 import threading
 

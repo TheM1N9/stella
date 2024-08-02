@@ -3,38 +3,11 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import json
 import re
-import os.path
-import pickle
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-from googleapiclient.discovery import build
+
 from requests import HTTPError
 import google.generativeai as genai
-from safety_settings import safe
-
-SCOPES = [
-    'https://www.googleapis.com/auth/calendar.readonly',
-    'https://www.googleapis.com/auth/gmail.send',
-    'https://www.googleapis.com/auth/gmail.readonly'
-]
-
-# Check if the token.pickle file exists and load it if it does
-creds = None
-if os.path.exists('token.pickle'):
-    with open('token.pickle', 'rb') as token:
-        creds = pickle.load(token)
-
-# If no valid credentials are available, log in and save the credentials to token.pickle
-if not creds or not creds.valid:
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-    else:
-        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-        creds = flow.run_local_server(port=0)
-    with open('token.pickle', 'wb') as token:
-        pickle.dump(creds, token)
-
-service = build('gmail', 'v1', credentials=creds)
+from settings.safety_settings import safe
+from credentials.google_credentials import gmail_service
 
 def send_email(command: str, conversation_history) -> str:
     """Send an email using GMail API."""
@@ -72,7 +45,7 @@ def send_email(command: str, conversation_history) -> str:
         create_message = {'raw': base64.urlsafe_b64encode(msg.as_bytes()).decode()}
 
         try:
-            message = (service.users().messages().send(userId="me", body=create_message).execute())
+            message = (gmail_service.users().messages().send(userId="me", body=create_message).execute())
             response = "Email sent successfully."
         except HTTPError as e:
             response = f"Failed to send email. Error: {str(e)}"
@@ -87,7 +60,7 @@ def read_emails():
     print("Reading emails...")
     max_results=10
     try:
-        results = service.users().messages().list(userId='me', maxResults=max_results, labelIds=['INBOX']).execute()
+        results = gmail_service.users().messages().list(userId='me', maxResults=max_results, labelIds=['INBOX']).execute()
         messages = results.get('messages', [])
         
         if not messages:
@@ -95,7 +68,7 @@ def read_emails():
 
         emails = []
         for message in messages:
-            msg = service.users().messages().get(userId='me', id=message['id']).execute()
+            msg = gmail_service.users().messages().get(userId='me', id=message['id']).execute()
             msg_snippet = msg['snippet']
             msg_payload = msg.get('payload', {})
             headers = msg_payload.get('headers', [])

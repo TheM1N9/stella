@@ -4,117 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stella Assistant</title>
+    <link rel="stylesheet" href="/static/css/index.css">
+    <link rel="shortcut icon" href="/static/images/stella.png" type="image/x-icon">
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f4f4f9;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-image: url('static\\images\\backiee-119590-landscape.jpg');
-            background-position: 100% 100%;
-            background-repeat: no-repeat;
-            background-size: cover;
-        }
-        .chat-container {
-            width: 90%;
-            max-width: 600px;
-            background-color: white;
-            border-radius: 10px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            display: flex;
-            flex-direction: column;
-            height: 90%;
-        }
-        .chat-header {
-            background-color: #4CAF50;
-            color: white;
-            padding: 15px;
-            /* text-align: center; */
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
-            font-size: 24px;
-            font-weight: bold;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-        }
-        .chat-header img {
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            margin-right: 10px;
-        }
-        .chat-history {
-            flex: 1;
-            padding: 20px;
-            overflow-y: auto;
-            border-bottom: 1px solid #ddd;
-            text-align: justify;
-            background-image: url('static\\images\\1344977.jpeg');
-            /* background-position: 100% 100%; */
-            background-repeat: no-repeat;
-            background-size: cover;
-        }
-        .chat-input {
-            display: flex;
-            padding: 10px;
-            border-bottom-left-radius: 10px;
-            border-bottom-right-radius: 10px;
-            background-color: #4CAF50;
-            flex-shrink: 0;
-        }
-        .chat-input input {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            border-radius: 5px;
-            margin-right: 10px;
-            font-size: 16px;
-        }
-        .chat-input button {
-            padding: 10px 20px;
-            background-color: #00ff0d;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        .chat-input button:hover {
-            background-color: #45a049;
-        }
-        .message {
-            margin-bottom: 10px;
-            padding: 10px;
-            border-radius: 5px;
-            word-wrap: break-word;
-            font-size: 16px;
-            display: flex;
-            flex-grow: 1;
-            width: fit-content; /* Adjust width based on content */
-            max-width: 80%; /* Adjust max-width based on content */
-        }
-        .user {
-            background-color: #DCF8C6;
-            align-self: flex-end;
-            justify-content: flex-end;
-        }
-        .stella {
-            background-color: #EAEAEA;
-            align-self: flex-start;
-            justify-content: flex-start;
-        }
-        .message.user {
-            margin-left: auto;
-        }
-        .message.stella {
-            margin-right: auto;
-        }
-    </style>
 </head>
 <body>
     <div class="chat-container">
@@ -128,6 +20,7 @@
             <button id="send-button">Send</button>
         </div>
     </div>
+
     <script>
         $(document).ready(function() {
             function appendMessage(content, className) {
@@ -167,20 +60,39 @@
             function sendMessage(message) {
                 appendMessage(message, 'user');
                 disableInput();
+                showTypingIndicator();
+
                 $.ajax({
                     type: 'POST',
                     url: '/send_message',
                     contentType: 'application/json',
                     data: JSON.stringify({ message: message }),
                     success: function(response) {
+                        hideTypingIndicator();
                         appendMessage(response.response.replace('response:', '').trim(), 'stella');
                         enableInput();
                     },
                     error: function() {
+                        hideTypingIndicator();
                         enableInput();
                         alert('Failed to send message. Please try again.');
                     }
                 });
+            }
+
+            function showTypingIndicator() {
+                $('#chat-history').append(
+                    `<div class="message stella typing-indicator">
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                        <div class="dot"></div>
+                    </div>`
+                );
+                $('#chat-history').scrollTop($('#chat-history')[0].scrollHeight);
+            }
+
+            function hideTypingIndicator() {
+                $('.typing-indicator').remove();
             }
 
             function disableInput() {

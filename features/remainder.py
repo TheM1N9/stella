@@ -3,7 +3,7 @@ import json
 import time
 from threading import Thread
 
-from speak import speak
+from features.speak import speak
 
 # Initialize reminders list
 reminders = []
@@ -32,13 +32,13 @@ def check_reminders():
         time.sleep(60)  # Check every minute
 
 def save_reminders():
-    with open("reminders.json", "w") as file:
+    with open("memory/reminders.json", "w") as file:
         json.dump(reminders, file)
 
 def load_reminders():
     global reminders
     try:
-        with open("reminders.json", "r") as file:
+        with open("memory/reminders.json", "r") as file:
             reminders = json.load(file)
     except FileNotFoundError:
         reminders = []

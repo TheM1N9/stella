@@ -4,7 +4,7 @@ import json
 def load_tasks():
     global tasks
     try:
-        with open("tasks.json", "r") as f:
+        with open("memory/tasks.json", "r") as f:
             tasks = json.load(f)
     except FileNotFoundError:
         tasks = []
@@ -12,7 +12,7 @@ def load_tasks():
 # Save tasks to a file
 def save_tasks():
     global tasks
-    with open("tasks.json", "w") as f:
+    with open("memory/tasks.json", "w") as f:
         json.dump(tasks, f)
 
 # Create a new task

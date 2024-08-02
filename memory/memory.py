@@ -7,7 +7,7 @@ conversation_history = []
 def load_conversation_history():
     global conversation_history
     try:
-        with open('conversation_history.json', 'r') as file:
+        with open('memory/conversation_history.json', 'r') as file:
             conversation_history = json.load(file)
         print("Conversation history loaded successfully.")
     except FileNotFoundError:
@@ -26,11 +26,11 @@ def save_conversation_history():
     if not conversation_history:
         print("Warning: Attempting to save an empty conversation history.")
     try:
-        with open('conversation_history.json', 'w') as file:
+        with open('memory/conversation_history.json', 'w') as file:
             json.dump(conversation_history, file, indent=4)
         # print("Conversation history saved successfully.")
         # Verify if the file has been updated
-        with open('conversation_history.json', 'r') as file:
+        with open('memory/conversation_history.json', 'r') as file:
             contents = file.read()
             # print("File contents after saving:")
             # print(contents)
