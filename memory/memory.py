@@ -43,6 +43,8 @@ def update_conversation_history(new_entry):
     global conversation_history
     conversation_history.append(new_entry)
     # print(f"Updated conversation history: {conversation_history}")
+    # Save the conversation history
+    save_conversation_history()
 
 if __name__ == "__main__":
     # Example usage

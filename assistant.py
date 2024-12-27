@@ -1,12 +1,21 @@
 import re
 import json
-from typing import Dict, LiteralString
+from typing import Dict, Any, List
 import speech_recognition as sr
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-from features.file_management import create_file, create_folder, delete_file, delete_folder, open_file, open_folder, search_files, search_folders
-from memory.memory import load_conversation_history, save_conversation_history, update_conversation_history
+from features.file_management import (
+    create_file,
+    create_folder,
+    delete_file,
+    delete_folder,
+    open_file,
+    open_folder,
+    search_files,
+    search_folders,
+)
+from memory.memory import load_conversation_history, update_conversation_history
 from features.open_close_app import open_application, close_application
 from features.mail import read_emails, send_email
 from features.remainder import list_reminders, create_reminder, start_reminder_thread
@@ -15,7 +24,13 @@ from features.self_response import answer_yourself
 from features.internet_search import search_web
 from features.get_calendar import get_calendar_events
 from features.speak import speak
-from features.task_management import complete_task, create_task, delete_task, list_tasks, load_tasks
+from features.task_management import (
+    complete_task,
+    create_task,
+    delete_task,
+    list_tasks,
+    load_tasks,
+)
 
 # Load environment variables
 load_dotenv()
@@ -26,39 +41,45 @@ google_api = os.getenv("GOOGLE_api_key")
 # Initialize Google GenerativeAI model
 genai.configure(api_key=google_api)
 
+safe_settings = safe
+
+
 def listen():
     recognizer = sr.Recognizer()
+    recognizer.dynamic_energy_threshold = True
+    recognizer.energy_threshold = 300  # Starting threshold
+    recognizer.pause_threshold = 0.8  # Shorter pause detection
 
     with sr.Microphone() as source:
         print("Listening...")
 
-        # Adjust for ambient noise initially
-        recognizer.adjust_for_ambient_noise(source)
+        try:
+            # Shorter adjustment period for ambient noise
+            recognizer.adjust_for_ambient_noise(source, duration=1)
+            print("Waiting for speech...")
 
-        print("Waiting for speech...")
+            audio = recognizer.listen(source, timeout=5, phrase_time_limit=10)
 
-        # Adjust dynamically based on the ambient noise level
-        dynamic_threshold = recognizer.energy_threshold
-
-        while True:
             try:
-                audio = recognizer.listen(source, timeout=None)
-                query = recognizer.recognize_google(audio).lower() # type: ignore
+                query = recognizer.recognize_google(audio).lower()
                 print(f"You said: {query}")
                 return query
             except sr.UnknownValueError:
-                print("Sorry, I couldn't understand the audio.")
-            except sr.RequestError as e:
-                print(f"Could not request results from Google Speech Recognition service; {e}")
+                print("Could not understand audio. Please try again.")
                 return ""
-            except sr.WaitTimeoutError:
-                dynamic_threshold = min(dynamic_threshold + 500, 4500)
-                recognizer.energy_threshold = dynamic_threshold
-                print(f"Adjusting dynamic threshold to {dynamic_threshold}")
+            except sr.RequestError:
+                print("Could not reach Google Speech Recognition service.")
+                return ""
+
+        except Exception as e:
+            print(f"Error during listening: {e}")
+            return ""
+
 
 def remove_asterisks(text):
     # Remove double asterisks from the answer
     return re.sub(r"\*\*|\*", "", text)
+
 
 def is_valid_email(email):
     """Checks if a given string is a valid email address."""
@@ -66,9 +87,14 @@ def is_valid_email(email):
     match = re.match(regex, email)
     return bool(match)
 
+
 def check_command(command: str, conversation_history) -> Dict[str, str]:
-    model = genai.GenerativeModel('gemini-1.5-flash', 
-                        system_instruction = """
+    # try:
+    # print(f"command: {command}")
+    # print(f"conversation_history: {conversation_history}")
+    model = genai.GenerativeModel(
+        model_name="gemini-1.5-flash-001",
+        system_instruction="""
                         You are Stella, an intelligent voice assistant. 
                         Analyze the user's command and decide which function to call based on the command. 
 
@@ -100,116 +126,129 @@ def check_command(command: str, conversation_history) -> Dict[str, str]:
                         complete_task: `This function is to complete a task.` function_name: 'complete_task', parameters: 'task_number': integer
 
                         The JSON output format:
-                        `
+                        {
                             'function_list': ['open_application', 'close_application', 'search_web', 'send_email'],
-                            'open_application': `
-                                                    'parameters': `
+                            'open_application': {
+                                                    'parameters': {
                                                                     'application_name': 'notepad'
-                                                                `
-                                                `,
-                            'close_application': `
-                                                    'parameters': `
+                                                                    }
+                                                },
+                            'close_application': {
+                                                    'parameters': {
                                                                         'application_name': 'spotify'
-                                                                    `
-                                                `,
-                            'search_web': `
-                                                    'parameters': `
+                                                                    }
+                                                },
+                            'search_web': {
+                                                    'parameters': {
                                                                     'query': 'weather conditions tomorrow in Visakhapatnam temperature rain wind'
-                                                                `
-                                                `,
-                            'send_email': `
+                                                                }
+                                                },
+                            'send_email': {
                                                 'parameters': ''
-                                            `
-                        `
+                                            }
+                        }
                         The output should be in the proper JSON format Ensure you use proper parenthesis in the output, replace ` with parenthesis. Parameters is also a JSON.
-                        """
-                        ,generation_config={"response_mime_type": "application/json"})
-    
-    resp = model.generate_content(contents=f"user command: {command}, conversation history: {conversation_history}", safety_settings=safe)
-    return json.loads(resp.text)
+                        """,
+        generation_config={"response_mime_type": "application/json"},
+    )
 
-def call_function(llm_commands_list,function_name,command,conversation_history):
+    chat_model = model.start_chat(history=conversation_history)
+    resp = chat_model.send_message(content=command, safety_settings=safe_settings)
+    # print(f"command response: {resp}")
     try:
-        if function_name == "open_application":
-            params = llm_commands_list.get("open_application", {}).get("parameters", {})
-            application_name = params.get("application_name", "")
-            response = open_application(application_name)
-        elif function_name == "close_application":
-            params = llm_commands_list.get("close_application", {}).get("parameters", {})
-            application_name = params.get("application_name", "")
-            response = close_application(application_name)
-        elif function_name == "search_web":
-            params = llm_commands_list.get("search_web", {}).get("parameters", {})
-            query = params.get("query", "")
-            response = search_web(query, conversation_history)
-        elif function_name == "answer_yourself":
-            response = answer_yourself(command=command, conversation_history=conversation_history, answer="")
-        elif function_name == "send_email":
-            response = send_email(command=command, conversation_history=conversation_history)
-        elif function_name == "read_emails":
-            ans = read_emails()
-            response = answer_yourself(command=command, conversation_history=conversation_history, answer=ans)
-        elif function_name == "get_calendar_events":
-            response = get_calendar_events()
-        elif function_name == "create_file":
-            params = llm_commands_list.get("create_file", {}).get("parameters", {})
-            file_path = params.get("file_path", "")
-            response = create_file(file_path)
-        elif function_name == "delete_file":
-            params = llm_commands_list.get("delete_file", {}).get("parameters", {})
-            file_path = params.get("file_path", "")
-            response = delete_file(file_path)
-        elif function_name == "open_file":
-            params = llm_commands_list.get("open_file", {}).get("parameters", {})
-            file_name = params.get("file_name", "")
-            response = open_file(file_name)
-        elif function_name == "create_folder":
-            params = llm_commands_list.get("create_folder", {}).get("parameters", {})
-            folder_path = params.get("folder_path", "")
-            response = create_folder(folder_path)
-        elif function_name == "delete_folder":
-            params = llm_commands_list.get("delete_folder", {}).get("parameters", {})
-            folder_path = params.get("folder_path", "")
-            response = delete_folder(folder_path)
-        elif function_name == "open_folder":
-            params = llm_commands_list.get("open_folder", {}).get("parameters", {})
-            folder_name = params.get("folder_name", "")
-            response = open_folder(folder_name)
-        elif function_name == "search_files":
-            params = llm_commands_list.get("search_files", {}).get("parameters", {})
-            search_query = params.get("search_query", "")
-            response = search_files(search_query)
-        elif function_name == "search_folders":
-            params = llm_commands_list.get("search_folders", {}).get("parameters", {})
-            search_query = params.get("search_query", "")
-            response = search_folders(search_query)
-        elif function_name == "create_reminder":
-            params = llm_commands_list.get("create_reminder", {}).get("parameters", {})
-            reminder_text = params.get("reminder_text", "")
-            reminder_time = params.get("reminder_time", "")
-            response = create_reminder(reminder_text, reminder_time)
-        elif function_name == "list_reminders":
-            response = list_reminders()
-        elif function_name == "create_task":
-            params = llm_commands_list.get("create_task", {}).get("parameters", {})
-            task_name = params.get("task_name", "")
-            response = create_task(task_name)
-        elif function_name == "list_tasks":
-            response = list_tasks()
-        elif function_name == "delete_task":
-            params = llm_commands_list.get("delete_task", {}).get("parameters", {})
-            task_number = params.get("task_number", 0)
-            response = delete_task(task_number)
-        elif function_name == "complete_task":
-            params = llm_commands_list.get("complete_task", {}).get("parameters", {})
-            task_number = params.get("task_number", 0)
-            response = complete_task(task_number)
-        else:
-            response = "Sorry, I can't do that!!"
+        return json.loads(resp.text)
     except Exception as e:
-        response = f"Error calling function: {e}"
+        print(f"Error: {e}")
+        return {}
+
+
+# except Exception as e:
+#     print(f"Error: {e}")
+#     return {}
+
+
+def call_function(
+    llm_commands_list: Dict[str, Any],
+    function_name: str,
+    command: str,
+    conversation_history: List[Dict[str, Any]] = [],
+):
+    # try:
+    # Get the function parameters from the correct structure
+    params = llm_commands_list.get(function_name, {}).get("parameters", {})
+
+    if function_name == "open_application":
+        application_name = params.get("application_name", "")
+        response = open_application(application_name)
+    elif function_name == "close_application":
+        application_name = params.get("application_name", "")
+        response = close_application(application_name)
+    elif function_name == "search_web":
+        query = params.get("query", "")
+        response = search_web(query, conversation_history)
+    elif function_name == "answer_yourself":
+        response = answer_yourself(
+            command=command, conversation_history=conversation_history
+        )
+    elif function_name == "send_email":
+        response = send_email(
+            command=command, conversation_history=conversation_history
+        )
+    elif function_name == "read_emails":
+        ans = read_emails()
+        response = answer_yourself(
+            command=command, conversation_history=conversation_history, answer=ans
+        )
+    elif function_name == "get_calendar_events":
+        response = get_calendar_events()
+    elif function_name == "create_file":
+        file_path = params.get("file_path", "")
+        response = create_file(file_path)
+    elif function_name == "delete_file":
+        file_path = params.get("file_path", "")
+        response = delete_file(file_path)
+    elif function_name == "open_file":
+        file_name = params.get("file_name", "")
+        response = open_file(file_name)
+    elif function_name == "create_folder":
+        folder_path = params.get("folder_path", "")
+        response = create_folder(folder_path)
+    elif function_name == "delete_folder":
+        folder_path = params.get("folder_path", "")
+        response = delete_folder(folder_path)
+    elif function_name == "open_folder":
+        folder_name = params.get("folder_name", "")
+        response = open_folder(folder_name)
+    elif function_name == "search_files":
+        search_query = params.get("search_query", "")
+        response = search_files(search_query)
+    elif function_name == "search_folders":
+        search_query = params.get("search_query", "")
+        response = search_folders(search_query)
+    elif function_name == "create_reminder":
+        reminder_text = params.get("reminder_text", "")
+        reminder_time = params.get("reminder_time", "")
+        response = create_reminder(reminder_text, reminder_time)
+    elif function_name == "list_reminders":
+        response = list_reminders()
+    elif function_name == "create_task":
+        task_name = params.get("task_name", "")
+        response = create_task(task_name)
+    elif function_name == "list_tasks":
+        response = list_tasks()
+    elif function_name == "delete_task":
+        task_number = params.get("task_number", 0)
+        response = delete_task(task_number)
+    elif function_name == "complete_task":
+        task_number = params.get("task_number", 0)
+        response = complete_task(task_number)
+    else:
+        response = "Sorry, I can't do that!!"
+    # except Exception as e:
+    #     response = f"Error calling function: {e}"
 
     return response
+
 
 def personal_assistant():
 
@@ -219,46 +258,39 @@ def personal_assistant():
     # Initialize conversation history
     conversation_history = load_conversation_history()
 
-    # print(f"Loaded conversation history: {conversation_history}")
-
     load_tasks()
     start_reminder_thread()
 
     while True:
         command = listen()
-        # Add the command to the conversation history
-        update_conversation_history(f"user command: {command}")
-        conversation_history.append(f"user command: {command}")
-        # print(f"Updated conversation history: {conversation_history}")
-        
+
         if not command.strip():
             continue
 
-        if "stop" in command:
+        if "stop" == command.lower():
             response = "Goodbye!"
             speak("Goodbye!")
             break
-        elif "hello" in command.strip():
-            response = "Hello there!"
-            speak("Hi there!")
-        elif "your name" in command:
-            response = "I am Stella."
-            speak("I am Stella.")
         else:
             try:
-                llm_commands = check_command(command, conversation_history)
-                print(type(llm_commands))
-                print(llm_commands)
-                function_to_call = llm_commands.get("function_name")
-                params = llm_commands.get("parameters")
-                print(function_to_call)
 
+                llm_commands = check_command(command, conversation_history)
+                # print(type(llm_commands))
+                print(llm_commands)
                 function_list = llm_commands.get("function_list", [])
                 response = ""
                 for function_name in function_list:
-                    # Call the function based on LLM's output
-                    response = response + call_function(llm_commands, function_name,command,conversation_history)
-                
+                    result = call_function(
+                        llm_commands_list=llm_commands,
+                        function_name=function_name,
+                        command=command,
+                        conversation_history=conversation_history,
+                    )
+                    # Convert result to string if it's a list
+                    response = response + (
+                        str(result) if isinstance(result, list) else result
+                    )
+
                 response = remove_asterisks(response)
                 speak(response)
             except json.JSONDecodeError as e:
@@ -271,13 +303,15 @@ def personal_assistant():
                 speak("Sorry, I couldn't process the command.")
 
             # Add the response to the conversation history
-            update_conversation_history(f"response: {response}")
-            conversation_history.append(f"response: {response}")
-            # print(f"Updated conversation history before saving: {conversation_history}")
+            update_conversation_history({"role": "user", "parts": [{"text": command}]})
+            update_conversation_history(
+                {"role": "model", "parts": [{"text": response}]}
+            )
+            conversation_history.append({"role": "user", "parts": [{"text": command}]})
+            conversation_history.append(
+                {"role": "model", "parts": [{"text": response}]}
+            )
 
-            # Save the conversation history
-            save_conversation_history()
-            # print(f"Conversation history after saving: {conversation_history}")
 
 if __name__ == "__main__":
     personal_assistant()

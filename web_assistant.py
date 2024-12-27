@@ -5,8 +5,21 @@ import speech_recognition as sr
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
-from features.file_management import create_file, create_folder, delete_file, delete_folder, open_file, open_folder, search_files, search_folders
-from memory.memory import load_conversation_history, save_conversation_history, update_conversation_history
+from features.file_management import (
+    create_file,
+    create_folder,
+    delete_file,
+    delete_folder,
+    open_file,
+    open_folder,
+    search_files,
+    search_folders,
+)
+from memory.memory import (
+    load_conversation_history,
+    save_conversation_history,
+    update_conversation_history,
+)
 from features.open_close_app import open_application, close_application
 from features.mail import read_emails, send_email
 from features.remainder import list_reminders, create_reminder, start_reminder_thread
@@ -15,7 +28,13 @@ from features.self_response import answer_yourself
 from features.internet_search import search_web
 from features.get_calendar import get_calendar_events
 from features.speak import speak
-from features.task_management import complete_task, create_task, delete_task, list_tasks, load_tasks
+from features.task_management import (
+    complete_task,
+    create_task,
+    delete_task,
+    list_tasks,
+    load_tasks,
+)
 
 # Load environment variables
 load_dotenv()
@@ -28,6 +47,7 @@ genai.configure(api_key=google_api)
 
 # Load the conversation history at the start
 conversation_history = load_conversation_history()
+
 
 def listen():
     recognizer = sr.Recognizer()
@@ -46,22 +66,26 @@ def listen():
         while True:
             try:
                 audio = recognizer.listen(source, timeout=None)
-                query = recognizer.recognize_google(audio).lower() # type: ignore
+                query = recognizer.recognize_google(audio).lower()  # type: ignore
                 print(f"You said: {query}")
                 return query
             except sr.UnknownValueError:
                 print("Sorry, I couldn't understand the audio.")
             except sr.RequestError as e:
-                print(f"Could not request results from Google Speech Recognition service; {e}")
+                print(
+                    f"Could not request results from Google Speech Recognition service; {e}"
+                )
                 return ""
             except sr.WaitTimeoutError:
                 dynamic_threshold = min(dynamic_threshold + 500, 4500)
                 recognizer.energy_threshold = dynamic_threshold
                 print(f"Adjusting dynamic threshold to {dynamic_threshold}")
 
+
 def remove_asterisks(text):
     # Remove double asterisks from the answer
     return re.sub(r"\*\*|\*", "", text)
+
 
 def is_valid_email(email):
     """Checks if a given string is a valid email address."""
@@ -69,9 +93,11 @@ def is_valid_email(email):
     match = re.match(regex, email)
     return bool(match)
 
-def check_command(command: str, conversation_history) -> Dict[str, str]:
-    model = genai.GenerativeModel('gemini-1.5-flash', 
-                        system_instruction = """
+
+def check_command(command: str, conversation_histor=[]) -> Dict[str, str]:
+    model = genai.GenerativeModel(
+        "gemini-1.5-flash",
+        system_instruction="""
                         You are Stella, an intelligent voice assistant. 
                         Analyze the user's command and decide which function to call based on the command. 
 
@@ -125,21 +151,25 @@ def check_command(command: str, conversation_history) -> Dict[str, str]:
                                             `
                         `
                         The output should be in the proper JSON format Ensure you use proper parenthesis in the output, replace ` with parenthesis. Parameters is also a JSON.
-                        """
-                        ,generation_config={"response_mime_type": "application/json"})
-    
-    resp = model.generate_content(contents=f"user command: {command}, conversation history: {conversation_history}", safety_settings=safe)
-    print(resp.text)
+                        """,
+        generation_config={"response_mime_type": "application/json"},
+    )
+
+    chat_model = model.start_chat(history=conversation_history)
+    resp = chat_model.send_message(content=command, safety_settings=safe)
     return json.loads(resp.text)
 
-def call_function(llm_commands_list,function_name,command,conversation_history):
+
+def call_function(llm_commands_list, function_name, command, conversation_history):
     try:
         if function_name == "open_application":
             params = llm_commands_list.get("open_application", {}).get("parameters", {})
             application_name = params.get("application_name", "")
             response = open_application(application_name)
         elif function_name == "close_application":
-            params = llm_commands_list.get("close_application", {}).get("parameters", {})
+            params = llm_commands_list.get("close_application", {}).get(
+                "parameters", {}
+            )
             application_name = params.get("application_name", "")
             response = close_application(application_name)
         elif function_name == "search_web":
@@ -147,15 +177,23 @@ def call_function(llm_commands_list,function_name,command,conversation_history):
             query = params.get("query", "")
             response = search_web(query, conversation_history)
         elif function_name == "answer_yourself":
-            response = answer_yourself(command=command, conversation_history=conversation_history, answer="")
+            response = answer_yourself(
+                command=command, conversation_history=conversation_history, answer=""
+            )
         elif function_name == "send_email":
-            response = send_email(command=command, conversation_history=conversation_history)
+            response = send_email(
+                command=command, conversation_history=conversation_history
+            )
         elif function_name == "read_emails":
             ans = read_emails()
-            response = answer_yourself(command=command, conversation_history=conversation_history, answer=ans)
+            response = answer_yourself(
+                command=command, conversation_history=conversation_history, answer=ans
+            )
         elif function_name == "get_calendar_events":
             ans = get_calendar_events()
-            response = answer_yourself(command=command, conversation_history=conversation_history, answer=ans)
+            response = answer_yourself(
+                command=command, conversation_history=conversation_history, answer=ans
+            )
         elif function_name == "create_file":
             params = llm_commands_list.get("create_file", {}).get("parameters", {})
             file_path = params.get("file_path", "")
@@ -216,6 +254,7 @@ def call_function(llm_commands_list,function_name,command,conversation_history):
 
     return response
 
+
 def personal_assistant(user_message=None):
     if user_message:
         command = user_message
@@ -226,32 +265,24 @@ def personal_assistant(user_message=None):
     load_tasks()
     start_reminder_thread()
 
-    update_conversation_history(f"user command: {command}")
+    # update_conversation_history(f"user command: {command}")
     # conversation_history.append(f"user command: {command}")
-    
+
     if not command.strip():
         return "No command received."
 
-    if "stop" in command:
+    if "stop" == command.lower():
         response = "Goodbye!"
-        # speak(response)
-        # return response
-    elif "hello" in command:
-        response = "Hello there!"
-        # speak(response)
-        # return response
-    elif "your name" in command:
-        response = "I am Stella."
-        # speak(response)
-        # return response
     else:
         try:
             llm_commands = check_command(command, conversation_history)
             function_list = llm_commands.get("function_list", [])
             response = ""
             for function_name in function_list:
-                response += call_function(llm_commands, function_name, command, conversation_history)
-            
+                response += call_function(
+                    llm_commands, function_name, command, conversation_history
+                )
+
             response = remove_asterisks(response)
             # speak(response)
             # return response
@@ -261,9 +292,11 @@ def personal_assistant(user_message=None):
             # speak(response)
             # return response
 
-    update_conversation_history(f"response: {response}")
-    # conversation_history.append(f"response: {response}")
-    save_conversation_history()
+        update_conversation_history({"role": "user", "parts": [{"text": command}]})
+        update_conversation_history({"role": "model", "parts": [{"text": response}]})
+        conversation_history.append({"role": "user", "parts": [{"text": command}]})
+        conversation_history.append({"role": "model", "parts": [{"text": response}]})
+        save_conversation_history()
 
     return response
 

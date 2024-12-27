@@ -105,7 +105,7 @@ You can customize Stella by:
 
 - [ ] Give it the ability to use mouse and keyboard
 - [ ] Add the ability to see
-- [ ] Change its memory type
+- [X] Change its memory type
 - [ ] Add a command to open the web interface from voice prompt and vice versa
 - [ ] Integration with Messaging Apps: Connect Stella with messaging platforms like Slack, Microsoft Teams, or WhatsApp for sending and receiving messages
 - [ ] Add Wikipedia integration

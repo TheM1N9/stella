@@ -3,11 +3,14 @@ import os
 from google.cloud import texttospeech
 import pygame
 
+
 def speak(text: str):
     try:
-        a = 9/0
+        # a = 9/0
         # Initialize Google Cloud TTS client
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "service_account.json"
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = (
+            "./credentials/service_account.json"
+        )
         client = texttospeech.TextToSpeechClient()
 
         synthesis_input = texttospeech.SynthesisInput(text=text)
@@ -15,7 +18,7 @@ def speak(text: str):
         # Build the voice request, select the language code ("en-US") and the ssml
         # voice gender ("neutral")
         voice = texttospeech.VoiceSelectionParams(
-            language_code="en-US", 
+            language_code="en-US",
             name="en-US-Journey-F",
             ssml_gender=texttospeech.SsmlVoiceGender.FEMALE,
         )
@@ -57,14 +60,20 @@ def speak(text: str):
             try:
                 os.remove(audio_file)
             except PermissionError:
-                print(f"Error: Unable to delete {audio_file}. Please remove it manually.")
+                print(
+                    f"Error: Unable to delete {audio_file}. Please remove it manually."
+                )
 
-    except:
+    except Exception as e:
+        # print(f"Error: {e}")
         engine = pyttsx3.init()
-        voices = engine.getProperty('voices')
-        engine.setProperty('voice', voices[1].id)  # Change index to choose different voices
+        voices = engine.getProperty("voices")
+        engine.setProperty(
+            "voice", voices[1].id
+        )  # Change index to choose different voices
         engine.say(text)
         engine.runAndWait()
+
 
 if __name__ == "__main__":
     speak("Hello world!, I'm Stella")

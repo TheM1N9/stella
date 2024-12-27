@@ -15,8 +15,8 @@ try:
 
     # Check if the token.pickle file exists and load it if it does
     creds = None
-    if os.path.exists('token.pickle'):
-        with open('token.pickle', 'rb') as token:
+    if os.path.exists('./credentials/token.pickle'):
+        with open('./credentials/token.pickle', 'rb') as token:
             creds = pickle.load(token)
 
     # If no valid credentials are available, log in and save the credentials to token.pickle
@@ -24,9 +24,9 @@ try:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
-            flow = InstalledAppFlow.from_client_secrets_file(client_secrets_file='credentials/credentials1.json', scopes=SCOPES)
+            flow = InstalledAppFlow.from_client_secrets_file(client_secrets_file='credentials/credentials.json', scopes=SCOPES)
             creds = flow.run_local_server(port=0)
-        with open('token.pickle', 'wb') as token:
+        with open('./credentials/token.pickle', 'wb') as token:
             pickle.dump(creds, token)
 
     gmail_service = build('gmail', 'v1', credentials=creds)
